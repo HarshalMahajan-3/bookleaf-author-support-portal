@@ -1,168 +1,128 @@
-# BookLeaf Author Support & Communication Portal
+BookLeaf Author Support & Communication Portal
+A full-stack implementation of BookLeaf Publishing's Author Support & Communication Portal assignment. The application provides an author-facing workspace and an admin-facing operations portal, seeded with the supplied dataset of 10 authors and 18 books.
+Confidential assignment: Keep this repository private. Do not publish the assignment or this solution in a public repository.
 
-A full-stack technical-assignment implementation for BookLeaf Publishing. The project uses **React + Vite + Tailwind CSS** for the frontend and **Node.js + Express** for the REST API. It includes an author-facing workspace and an admin-facing operations portal, seeded with the supplied 10-author / 18-book dataset.
-
-> Assignment confidentiality: keep this repository private. Do not publish the assignment or this solution to a public repository.
-
-## What is implemented
-
-### Author portal
-- Email/password sign-in. An author can only access the books and tickets belonging to their account.
-- Overview cards for book count, copies sold, earned royalties and pending royalties.
-- Book catalogue with title, ISBN, genre, publication date, status, MRP, copies sold, total royalty earned, paid royalty and pending royalty.
-- Support request form with a book selector or `General / Account Level`, subject, description and attachment-name preview. Real file upload is intentionally not enabled.
-- Ticket history with status filters, search, original query and support messages. Ticket data refreshes every five seconds while the relevant page is open.
-
-### Admin portal
-- Operations overview with queue health, urgent tickets, author/book counts and combined pending royalty value.
-- Ticket inbox with status, category, priority, created-date and text filters. The API returns tickets ordered by priority and age.
-- AI-assisted category and priority classification at ticket creation. Admins can override either field.
-- AI-drafted response generated from the ticket plus the relevant book/author summary and the BookLeaf knowledge base. The draft is editable and is never sent automatically.
-- Status management, assignment, public replies and internal notes. Internal notes are excluded from author API responses.
-- Author directory and all-book catalogue.
-
-### AI and graceful fallback
-- Optional OpenAI Chat Completions integration. The default model is `gpt-4o-mini` and can be changed with `OPENAI_MODEL`.
-- API keys are read only by the server from `OPENAI_API_KEY`; the key is never sent to the browser.
-- Classification sends only the ticket subject and description, not the entire knowledge base or ticket history.
-- Draft generation sends the knowledge base and a compact context object for one ticket, including only relevant book fields. It does not send the full dataset or conversation history.
-- Each model call has a 15-second timeout and validates the returned category/priority or draft before accepting it.
-- If the key is missing, the provider errors, rate-limits or returns unusable content, the ticket is still created and a local rules-based classification/draft is used. Admins can always edit and send a manual response.
-- The rules-based fallback is designed for the provided assignment categories and policies. It is not a replacement for human review.
-
-## Stack and architecture
-
-```text
+Features
+Author portal
+- Email/password sign-in with author-level data access.
+- Overview of book count, copies sold, earned royalties, and pending royalties.
+- Book catalogue with ISBN, genre, publication date, status, MRP, sales, and royalty details.
+- Support ticket form with a book selector or a general/account-level option.
+- Ticket history with status filters, search, original query, and support replies.
+- Ticket updates are refreshed automatically while the ticket page is open.
+Admin portal
+- Operations dashboard with queue statistics, urgent tickets, author/book counts, and pending royalties.
+- Ticket inbox with status, category, priority, date, and text filters.
+- AI-assisted ticket category and priority classification, with manual admin overrides.
+- Editable AI-drafted replies based on the ticket, relevant author/book information, and the BookLeaf Knowledge Base.
+- Ticket status management, assignment, public replies, and private internal notes.
+- Author directory and complete book catalogue.
+AI integration and fallback
+- Optional OpenAI Chat Completions integration. The default model is gpt-4o-mini; configure another supported model through OPENAI_MODEL.
+- The API key is read by the backend from OPENAI_API_KEY and is never sent to the browser.
+- Classification uses the ticket subject and description rather than sending the full dataset or ticket history.
+- Draft generation uses the BookLeaf Knowledge Base and compact context for the specific ticket.
+- Model requests have a timeout and the response is checked before it is accepted.
+- If no API key is configured, or the provider fails or returns unusable content, the application uses its local rules-based fallback. Tickets can still be created and admins can edit and send manual replies.
+- The fallback is designed around the assignment's categories and policies. It is not a replacement for human review or a live LLM integration.
+Technology stack
+- Frontend: React 18, Vite, React Router, Tailwind CSS, Axios
+- Backend: Node.js, Express
+- Validation: Zod
+- Authentication: JWT and role-based access control
+- AI: Optional OpenAI API with a rules-based fallback
+- Persistence: JSON files for the supplied author/book data and ticket data
+Architecture
 Browser
-  React 18 + React Router + Tailwind CSS + Axios
-       |
-       | REST / JSON, JWT Bearer token
-       v
+  React + React Router + Tailwind CSS + Axios
+                 |
+                 | REST / JSON + JWT bearer token
+                 v
 Express API (Node.js)
-  Auth middleware / role checks / Zod validation
+  Authentication middleware / role checks / Zod validation
   Ticket routes / BookLeaf AI service
-       |
-       +-- sample-data.json (provided author + book records)
-       +-- tickets.json (local JSON persistence)
-       +-- OpenAI API (optional, server-side only)
-```
+                 |
+                 +-- sample-data.json  (provided authors and books)
+                 +-- tickets.json      (local ticket persistence)
+                 +-- OpenAI API        (optional, server-side only)
+The API uses a JSON-backed repository so the project can run locally without a separate database service. Ticket changes are written to server/data/tickets.json. The supplied author and book dataset is treated as source data.
 
-The API uses a small JSON-backed repository so the assignment can run without a database service or extra credentials. Ticket mutations are written to `server/data/tickets.json` using a temporary file and rename. The provided sample dataset is treated as read-only source data. For production, I would move authors, books, tickets, notes and messages to PostgreSQL, add migrations and transactions, and use database-level ownership constraints.
+The frontend uses short-interval polling for ticket updates rather than WebSockets. This keeps the local setup simple while allowing an author to see admin replies without manually refreshing the page.
+Deployment note: JSON-file persistence is suitable for local evaluation, but it is not durable storage on hosts with ephemeral filesystems. For a persistent production deployment, move tickets and related records to a managed database such as PostgreSQL or MongoDB before relying on the hosted instance for long-term data.
 
-The frontend uses short-interval polling (5 seconds for author tickets, 7 seconds for the admin inbox) instead of a WebSocket service. This keeps the local setup simple while making admin responses appear without a manual page refresh.
-
-## Run locally
-
-### Requirements
-- Node.js 20 or newer (Node 18.17+ should also work with the APIs used here)
+Requirements
+- Node.js 20 or newer
 - npm
-
-### 1. Install dependencies
-
-From the project root:
-
-```bash
+Run locally
+1. Install dependencies
+Run from the project root:
 npm install
-```
-
-### 2. Configure the API
-
+2. Configure environment variables
 Copy the example environment file:
-
-```bash
 cp server/.env.example server/.env
-```
-
-Set a long random `JWT_SECRET`. `OPENAI_API_KEY` is optional. Without it, the rules-based AI fallback is used.
-
-Example `server/.env`:
-
-```env
+Configure server/.env with your local values:
 PORT=5000
 CLIENT_ORIGIN=http://localhost:5173
 JWT_SECRET=replace-with-a-long-random-secret
+ADMIN_EMAIL=admin@bookleaf.com
+ADMIN_PASSWORD=replace-with-your-admin-password
+AUTHOR_DEFAULT_PASSWORD=replace-with-your-shared-demo-author-password
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
-```
-
-### 3. Start frontend and backend
-
-```bash
+- Use a long, random value for JWT_SECRET.
+- ADMIN_PASSWORD sets the demo admin password.
+- AUTHOR_DEFAULT_PASSWORD sets the shared demo password for the seeded author accounts.
+- OPENAI_API_KEY is optional. Leave it empty to use the local rules-based fallback.
+- Never commit server/.env or share its secrets. Keep .env excluded through .gitignore.
+3. Start the frontend and backend
 npm run dev
-```
-
+Local addresses:
 - Frontend: http://localhost:5173
-- API health: http://localhost:5000/api/health
-
-Vite proxies `/api` requests to the Express server.
-
-### 4. Build for production-style local serving
-
-```bash
+- Backend health check: http://localhost:5000/api/health
+Vite proxies /api requests to the Express server during development.
+4. Build and run the production-style server locally
 npm run build
 npm start
-```
+After the build, Express serves the frontend from client/dist together with the API on port 5000.
+Demo access
+The supplied dataset does not contain passwords. Demo credentials are configured through environment variables rather than stored in the dataset.
+- Admin email: admin@bookleaf.com
+- Admin password: the value configured in ADMIN_PASSWORD
+- Author access: choose any author from the author dropdown on the login page.
+- Author password: the shared value configured in AUTHOR_DEFAULT_PASSWORD
+All seeded demo authors use the same configured author password. The login dropdown selects an author's email; it does not create or change accounts. Use these shared demo credentials only for evaluation. Real users should have individually provisioned credentials and a password reset flow.
 
-After building, Express serves `client/dist` as well as the API from port 5000. Set `CLIENT_ORIGIN` to the deployed origin if the frontend is hosted separately.
+The application starts with four illustrative demo tickets so the admin queue and author ticket views are not empty. When the server is stopped, removing server/data/tickets.json restores the demo tickets on the next startup, if the seed logic is enabled in the current version.
+API reference
+All endpoints except the health check and login require an Authorization: Bearer <token> header.
+Method	Endpoint	Access	Purpose
+GET	/api/health	Public	Health check
+POST	/api/auth/login	Public	Email/password login; returns a JWT and user
+GET	/api/auth/me	Authenticated	Validate the current session
+GET	/api/author/profile	Author	Current author's profile summary
+GET	/api/books	Authenticated	Author's books, or all books for admin
+GET	/api/tickets	Authenticated	Author's tickets or all admin tickets; supports status, category, priority, and text query filters
+POST	/api/tickets	Author	Create a ticket; category and priority are classified server-side
+GET	/api/tickets/:id	Owner / Admin	Get a ticket and its messages; admins can also see internal notes
+PATCH	/api/tickets/:id	Admin	Update status, category, priority, or assignee
+POST	/api/tickets/:id/messages	Owner / Admin	Add a public message; admins can add an internal note with isInternal: true
+POST	/api/tickets/:id/ai-draft	Admin	Generate an editable response draft
+GET	/api/admin/stats	Admin	Dashboard counts and totals
+GET	/api/admin/authors	Admin	Author directory with operational summaries and contact details
 
-## Demo credentials
 
-The sample dataset does not include passwords, so the application provisions development-only demo passwords at server startup.
-
-| Role | Email | Password |
-|---|---|---|
-| Admin | `admin@bookleaf.com` | `admin123` |
-| Author | `priya.sharma@email.com` | `author123` |
-| Author | `rohit.kapoor@email.com` | `author123` |
-| Author | `ananya.reddy@email.com` | `author123` |
-| Author | `vikram.joshi@email.com` | `author123` |
-| Author | `meera.nair@email.com` | `author123` |
-| Author | `arjun.malhotra@email.com` | `author123` |
-| Author | `sneha.kulkarni@email.com` | `author123` |
-| Author | `farhan.sheikh@email.com` | `author123` |
-| Author | `kavita.deshmukh@email.com` | `author123` |
-| Author | `diya.chatterjee@email.com` | `author123` |
-
-Use these only for the local/demo environment. Production users need individually provisioned credentials and a password reset flow.
-
-The app starts with four clearly marked illustrative demo tickets so the admin queue and author ticket views are not empty. Removing `server/data/tickets.json` while the server is stopped restores these demo tickets on the next startup.
-
-## API reference
-
-All endpoints except health and login require `Authorization: Bearer <token>`.
-
-| Method | Endpoint | Access | Purpose |
-|---|---|---|---|
-| GET | `/api/health` | Public | Health check |
-| POST | `/api/auth/login` | Public | Email/password login; returns JWT and user |
-| GET | `/api/auth/me` | Authenticated | Validate the current session |
-| GET | `/api/author/profile` | Author | Current author's profile summary |
-| GET | `/api/books` | Authenticated | Author's books, or all books for admin |
-| GET | `/api/tickets` | Authenticated | Author's own tickets or all admin tickets; supports `status`, `category`, `priority`, `q` query parameters |
-| POST | `/api/tickets` | Author | Create a ticket; category and priority are classified server-side |
-| GET | `/api/tickets/:id` | Owner / Admin | Ticket, messages and admin-only notes for admins |
-| PATCH | `/api/tickets/:id` | Admin | Update status, category, priority or assignee |
-| POST | `/api/tickets/:id/messages` | Owner / Admin | Add a public message; admins may add an internal note with `isInternal: true` |
-| POST | `/api/tickets/:id/ai-draft` | Admin | Generate an editable response draft |
-| GET | `/api/admin/stats` | Admin | Dashboard counts and totals |
-| GET | `/api/admin/authors` | Admin | Author directory with operational summaries/contact details |
-
-### Example requests
-
-Login:
-
-```http
+Example requests
+Login
 POST /api/auth/login
 Content-Type: application/json
 
-{"email":"admin@bookleaf.com","password":"admin123"}
-```
-
-Create ticket:
-
-```http
+{
+  "email": "admin@bookleaf.com",
+  "password": "<ADMIN_PASSWORD>"
+}
+Create a ticket
 POST /api/tickets
-Authorization: Bearer <author-token>
+Authorization: Bearer <AUTHOR_TOKEN>
 Content-Type: application/json
 
 {
@@ -170,51 +130,44 @@ Content-Type: application/json
   "subject": "Question about pending royalty",
   "description": "Could you help me understand the pending amount shown for my book?"
 }
-```
-
-Override classification:
-
-```http
+Override classification
 PATCH /api/tickets/BL-1001
-Authorization: Bearer <admin-token>
+Authorization: Bearer <ADMIN_TOKEN>
 Content-Type: application/json
 
-{"priority":"Medium","category":"Royalty & Payments"}
-```
-
-## Important implementation details
-
-- **Access control:** JWT middleware identifies the role. Author-facing ticket reads and writes check `authorId` ownership. Authors cannot create internal notes. Admin-only routes are guarded separately.
-- **Validation:** Zod validates login, new ticket input, status/category/priority values and messages. The API returns useful 400/401/403/404 messages rather than exposing internal exceptions.
-- **Security:** Helmet headers, CORS origin configuration, JSON size limit, login rate limit and environment-based JWT/AI secrets are configured. Demo passwords are deliberately documented as development-only.
-- **Near-real-time updates:** The client polls ticket endpoints while ticket pages are open. Internal notes are filtered on the server, not merely hidden in the UI.
-- **Royalty values:** Values are shown from the provided dataset; the app does not recalculate royalties because the source does not include printing cost, platform commission or shipping details needed to recompute net profit.
-
-## Known limitations / next steps
-
-1. Replace the JSON ticket store with PostgreSQL and add migrations, transactions, indexes and audit history.
-2. Add real attachment storage (for example, S3-compatible object storage), file type/size validation and malware scanning. The current attachment field only records the selected file name.
-3. Replace polling with Server-Sent Events or WebSockets for higher-volume ticket traffic.
-4. Add password setup/reset, invite flow, refresh tokens, account lockout and production secrets management.
-5. Add model evaluation fixtures and human feedback on classification accuracy; consider storing model name, prompt version, latency and token usage per AI operation.
-6. Add pagination, date-range API filters, richer SLA reporting and role/permission management for multiple admin agents.
-7. Add automated tests for author ownership, internal-note privacy, ticket lifecycle, input validation and AI failure paths.
-
-## Project structure
-
-```text
+{
+  "priority": "Medium",
+  "category": "Royalty & Payments"
+}
+Implementation details
+- Access control: JWT middleware identifies the user and role. Author-facing ticket operations enforce author ownership. Admin-only routes are protected separately.
+- Validation: Zod validates login, ticket creation, status/category/priority values, and messages. The API returns meaningful client errors for invalid or unauthorized requests.
+- Security: Helmet headers, CORS configuration, JSON size limits, login rate limiting, and environment-based JWT/AI secrets are configured.
+- Ticket updates: The client polls ticket endpoints while ticket pages are open. Internal notes are filtered by the server and are not returned to authors.
+- Royalty values: The application displays figures from the supplied dataset. It does not recalculate royalties because the dataset does not include the printing cost, platform commission, or shipping details needed to recompute net profit.
+Known limitations and future improvements
+1. Replace JSON ticket persistence with a managed database and add migrations, transactions, indexes, and audit history.
+2. Add real attachment storage, file type/size validation, and malware scanning. The current attachment field only previews or records the selected file name.
+3. Consider Server-Sent Events or WebSockets for higher-volume ticket traffic.
+4. Add individual password setup/reset, an invite flow, refresh tokens, account lockout, and production secrets management.
+5. Add model evaluation fixtures and human feedback for classification accuracy; record model name, prompt version, latency, and token usage for AI operations.
+6. Add pagination, date-range filters, richer SLA reporting, and finer-grained permissions for multiple admin agents.
+7. Add automated tests for author ownership, internal-note privacy, ticket lifecycle, input validation, and AI failure handling.
+Project structure
 bookleaf-portal/
 ├── client/
-│   ├── src/components/       # layout, badges, buttons, ticket cards
-│   ├── src/context/          # authentication context
-│   ├── src/pages/            # author + admin pages
-│   ├── src/api.js            # Axios client and error handling
-│   └── src/index.css         # Tailwind + shared component styles
+│   └── src/
+│       ├── components/       # Layout, badges, buttons, ticket cards
+│       ├── context/          # Authentication context
+│       ├── pages/            # Author and admin pages
+│       ├── api.js             # Axios client and error handling
+│       └── index.css          # Tailwind and shared component styles
 ├── server/
-│   ├── data/sample-data.json # supplied BookLeaf dataset
-│   ├── src/ai.js             # prompt and fallback AI logic
-│   ├── src/store.js          # JSON-backed persistence and seed data
-│   └── src/index.js          # Express API, auth and RBAC
-├── SUBMISSION_NOTES.md       # concise approach write-up
+│   ├── data/
+│   │   └── sample-data.json  # Supplied BookLeaf dataset
+│   └── src/
+│       ├── ai.js              # Prompt and fallback AI logic
+│       ├── store.js           # JSON-backed persistence and seed data
+│       └── index.js           # Express API, authentication, and RBAC
+├── SUBMISSION_NOTES.md        # Assignment approach write-up
 └── README.md
-```
